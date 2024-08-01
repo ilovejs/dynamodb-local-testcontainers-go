@@ -11,7 +11,11 @@ import (
 func ExampleRunContainer() {
 	ctx := context.Background()
 
-	dynamodbContainer, err := dynamodblocal.RunContainer(ctx)
+	dynamodbContainer, err := dynamodblocal.RunContainer(
+		ctx,
+		dynamodblocal.WithTelemetryDisabled(),
+		dynamodblocal.WithSharedDB(),
+	)
 	if err != nil {
 		log.Fatalf("failed to start container: %s", err)
 	}

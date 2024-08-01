@@ -3,6 +3,7 @@ package dynamodblocal
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -13,8 +14,9 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-// DynamodbLocalContainer represents the a DynamoDB Local container - https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html
-type DynamodbLocalContainer struct {
+// Container represents a DynamoDB Local container
+// https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html
+type Container struct {
 	testcontainers.Container
 }
 
@@ -25,34 +27,41 @@ const (
 )
 
 // RunContainer creates an instance of the dynamodb container type
-func RunContainer(ctx context.Context, opts ...testcontainers.ContainerCustomizer) (*DynamodbLocalContainer, error) {
+func RunContainer(
+	ctx context.Context,
+	opts ...testcontainers.ContainerCustomizer,
+) (*Container, error) {
 	req := testcontainers.ContainerRequest{
 		Image:        image,
 		ExposedPorts: []string{string(port)},
 		WaitingFor:   wait.ForListeningPort(port),
 	}
 
-	genericContainerReq := testcontainers.GenericContainerRequest{
+	containerReq := testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          true,
 	}
 
 	for _, opt := range opts {
-		opt.Customize(&genericContainerReq)
+		err := opt.Customize(&containerReq)
+		if err != nil {
+			panic(err)
+		}
 	}
 
-	//log.Println("CMD", genericContainerReq.Cmd)
+	log.Println("CMD:", containerReq.Cmd)
+	log.Println("Image:", image)
 
-	container, err := testcontainers.GenericContainer(ctx, genericContainerReq)
+	container, err := testcontainers.GenericContainer(ctx, containerReq)
 	if err != nil {
 		return nil, err
 	}
 
-	return &DynamodbLocalContainer{Container: container}, nil
+	return &Container{Container: container}, nil
 }
 
 // ConnectionString returns DynamoDB local endpoint host and port in <host>:<port> format
-func (c *DynamodbLocalContainer) ConnectionString(ctx context.Context) (string, error) {
+func (c *Container) ConnectionString(ctx context.Context) (string, error) {
 	mappedPort, err := c.MappedPort(ctx, port)
 	if err != nil {
 		return "", err
@@ -67,29 +76,43 @@ func (c *DynamodbLocalContainer) ConnectionString(ctx context.Context) (string, 
 	return uri, nil
 }
 
-func (c *DynamodbLocalContainer) GetDynamoDBClient(ctx context.Context) (*dynamodb.Client, error) {
-	hostAndPort, err := c.ConnectionString(context.Background())
+func (c *Container) GetDynamoDBClient(
+	ctx context.Context,
+) (*dynamodb.Client, error) {
+	hostAndPort, err := c.ConnectionString(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	cfg, err := config.LoadDefaultConfig(context.Background(), config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
-		Value: aws.Credentials{
-			AccessKeyID:     "DUMMYIDEXAMPLE",
-			SecretAccessKey: "DUMMYEXAMPLEKEY",
-		},
-	}))
+	cfg, err := config.LoadDefaultConfig(
+		ctx,
+		config.WithCredentialsProvider(
+			credentials.StaticCredentialsProvider{
+				Value: aws.Credentials{
+					AccessKeyID:     "DUMMYIDEXAMPLE",
+					SecretAccessKey: "DUMMYEXAMPLEKEY",
+				},
+			},
+		),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	return dynamodb.NewFromConfig(cfg, dynamodb.WithEndpointResolverV2(&DynamoDBLocalResolver{hostAndPort: hostAndPort})), nil
+	// more option
+	dynClient := dynamodb.NewFromConfig(
+		cfg,
+		dynamodb.WithEndpointResolverV2(
+			&DynamoDBLocalResolver{
+				hostAndPort: hostAndPort},
+		),
+	)
+	return dynClient, nil
 }
 
-// WithSharedDB allows container reuse between successive runs. Data will be persisted
+// WithSharedDB allows container reuse between successive runs. Data will be persisted.
 func WithSharedDB() testcontainers.CustomizeRequestOption {
-
-	return func(req *testcontainers.GenericContainerRequest) {
+	return func(req *testcontainers.GenericContainerRequest) error {
 		if len(req.Cmd) > 0 {
 			req.Cmd = append(req.Cmd, "-sharedDb")
 		} else {
@@ -97,18 +120,19 @@ func WithSharedDB() testcontainers.CustomizeRequestOption {
 		}
 		req.Name = containerName
 		req.Reuse = true
+		return nil
 	}
 }
 
-// WithTelemetryDisabled - DynamoDB local will not send any telemetry
+// WithTelemetryDisabled DynamoDB local will not send any telemetry
 func WithTelemetryDisabled() testcontainers.CustomizeRequestOption {
-
-	return func(req *testcontainers.GenericContainerRequest) {
+	return func(req *testcontainers.GenericContainerRequest) error {
 		// if other flags (e.g. -sharedDb) exist, append to them
 		if len(req.Cmd) > 0 {
 			req.Cmd = append(req.Cmd, "-disableTelemetry")
 		} else {
 			req.Cmd = append(req.Cmd, "-jar", "DynamoDBLocal.jar", "-disableTelemetry")
 		}
+		return nil
 	}
 }
