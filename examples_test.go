@@ -1,20 +1,18 @@
-package dynamodblocal_test
+package dynamodblocal
 
 import (
 	"context"
 	"fmt"
 	"log"
-
-	dynamodblocal "github.com/abhirockzz/dynamodb-local-testcontainers-go"
 )
 
 func ExampleRunContainer() {
 	ctx := context.Background()
 
-	dynamodbContainer, err := dynamodblocal.RunContainer(
+	dynamodbContainer, err := RunContainer(
 		ctx,
-		dynamodblocal.WithTelemetryDisabled(),
-		dynamodblocal.WithSharedDB(),
+		WithTelemetryDisabled(),
+		WithSharedDB(),
 	)
 	if err != nil {
 		log.Fatalf("failed to start container: %s", err)

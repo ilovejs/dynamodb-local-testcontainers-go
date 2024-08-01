@@ -11,7 +11,7 @@ This module can be used to test your DynamoDB Go applications using Testcontaine
 ## To add this module to your project dependencies
 
 ```shell
-go get github.com/abhirockzz/dynamodb-local-testcontainers-go
+go get github.com/ilovejs/dynamodb-local-testcontainers-go
 ```
 
 ## Getting started
@@ -20,7 +20,7 @@ You can use the example below to get started quickly. To run this:
 
 ```
 go mod init demo
-go get github.com/abhirockzz/dynamodb-local-testcontainers-go
+go get github.com/ilovejs/dynamodb-local-testcontainers-go
 go run main.go
 ```
 
@@ -40,7 +40,7 @@ import (
 	"context"
 	"log"
 
-	dynamodblocal "github.com/abhirockzz/dynamodb-local-testcontainers-go"
+	dynamodblocal "github.com/ilovejs/dynamodb-local-testcontainers-go"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -189,3 +189,8 @@ To use these options together:
 ```go
 container, err := dynamodblocal.RunContainer(ctx, WithSharedDB(), WithTelemetryDisabled())
 ```
+
+## Credit
+
+abhirockzz - original author
+ilovejs
