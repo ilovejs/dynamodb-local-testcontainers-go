@@ -22,7 +22,7 @@ type Container struct {
 
 const (
 	image         = "amazon/dynamodb-local:2.2.1"
-	port          = nat.Port("8000/tcp")
+	targetPort    = nat.Port("8000/tcp")
 	containerName = "dynamodb_local"
 )
 
@@ -33,8 +33,8 @@ func RunContainer(
 ) (*Container, error) {
 	req := testcontainers.ContainerRequest{
 		Image:        image,
-		ExposedPorts: []string{string(port)},
-		WaitingFor:   wait.ForListeningPort(port),
+		ExposedPorts: []string{string(targetPort)},
+		WaitingFor:   wait.ForListeningPort(targetPort),
 	}
 
 	containerReq := testcontainers.GenericContainerRequest{
@@ -50,7 +50,7 @@ func RunContainer(
 	}
 
 	log.Println("CMD:", containerReq.Cmd)
-	log.Println("Image:", image)
+	log.Println("Image:", containerReq.Image)
 
 	container, err := testcontainers.GenericContainer(ctx, containerReq)
 	if err != nil {
@@ -62,7 +62,7 @@ func RunContainer(
 
 // ConnectionString returns DynamoDB local endpoint host and port in <host>:<port> format
 func (c *Container) ConnectionString(ctx context.Context) (string, error) {
-	mappedPort, err := c.MappedPort(ctx, port)
+	mappedPort, err := c.MappedPort(ctx, targetPort)
 	if err != nil {
 		return "", err
 	}
@@ -74,6 +74,14 @@ func (c *Container) ConnectionString(ctx context.Context) (string, error) {
 
 	uri := fmt.Sprintf("%s:%s", hostIP, mappedPort.Port())
 	return uri, nil
+}
+
+func (c *Container) GetPort(ctx context.Context) string {
+	mappedPort, err := c.MappedPort(ctx, targetPort)
+	if err != nil {
+		return ""
+	}
+	return mappedPort.Port()
 }
 
 func (c *Container) GetDynamoDBClient(
@@ -133,6 +141,13 @@ func WithTelemetryDisabled() testcontainers.CustomizeRequestOption {
 		} else {
 			req.Cmd = append(req.Cmd, "-jar", "DynamoDBLocal.jar", "-disableTelemetry")
 		}
+		return nil
+	}
+}
+
+func WithImage(img string) testcontainers.CustomizeRequestOption {
+	return func(req *testcontainers.GenericContainerRequest) error {
+		req.Image = img
 		return nil
 	}
 }
